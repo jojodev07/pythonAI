@@ -31,7 +31,7 @@ openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 try:
     clientdb = chromadb.CloudClient(
-    api_key=os.getenv("CRHOMADB_KEY"),
+    api_key=os.getenv("CHROMADB_KEY"),
     tenant=os.getenv("CHROMADB_TENANT"),
     database='prod'
     )
