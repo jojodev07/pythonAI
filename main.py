@@ -132,3 +132,8 @@ async def rag_endpoint(payload: QueryRequest):
     answer = generate_answer(payload.question, contexts)
     
     return QueryResponse(answer=answer, context=contexts)
+
+# keep service alive:
+@app.get("/", response_model=str)
+async def sayHi():
+    return "Hello! I'm alive :p"
