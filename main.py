@@ -135,5 +135,6 @@ async def rag_endpoint(payload: QueryRequest):
 
 # keep service alive:
 @app.get("/", response_model=str, status_code=status.HTTP_200_OK)
+@app.head("/", response_model=str, status_code=status.HTTP_200_OK)
 async def sayHi():
     return "Hello! I'm alive :p"
