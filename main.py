@@ -1,5 +1,5 @@
 import os
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, status
 from pydantic import BaseModel, Field
 from openai import OpenAI
 import chromadb
@@ -134,6 +134,6 @@ async def rag_endpoint(payload: QueryRequest):
     return QueryResponse(answer=answer, context=contexts)
 
 # keep service alive:
-@app.get("/", response_model=str)
+@app.get("/", response_model=str, status_code=status.HTTP_200_OK)
 async def sayHi():
     return "Hello! I'm alive :p"
