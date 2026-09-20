@@ -1,7 +1,7 @@
 import os
+import asyncio
 from fastapi import FastAPI, HTTPException, status
-from pydantic import BaseModel, Field
-from openai import OpenAI
+from openai import AsyncOpenAI
 import chromadb
 from fastapi.middleware.cors import CORSMiddleware
 from schemas import QueryRequest, QueryResponse
@@ -25,7 +25,7 @@ app.add_middleware(
 
 load_dotenv("minimal.env")
 # Initialize clients (Ensure OPENAI_API_KEY is set in .env):
-openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+openai_client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 # Connect to vector db:
 
@@ -40,27 +40,18 @@ except Exception as e:
     print(f"Failed to connect to Chroma Cloud: {str(e)}")
     collection = None
 
-# Pydantic schemas with default top_k so payload can omit it
-class QueryRequest(BaseModel):
-    question: str
-    top_k: int = Field(default=10, ge=1)
-
-class QueryResponse(BaseModel):
-    answer: str
-    context: list[str]
-
-
-def retrieve_context(query: str, top_k: int) -> list[str]:
+async def retrieve_context(query: str, top_k: int) -> list[str]:
     if not collection:
         return []
     try:
-        embedding_response = openai_client.embeddings.create(
+        embedding_response = await openai_client.embeddings.create(
             model="text-embedding-3-small",
             input=query
         )
         query_vector = embedding_response.data[0].embedding
 
-        results = collection.query(
+        results = await asyncio.to_thread(
+            collection.query,
             query_embeddings=[query_vector],
             n_results=top_k,
             include=["documents", "metadatas"]
@@ -73,7 +64,7 @@ def retrieve_context(query: str, top_k: int) -> list[str]:
         return []
 
 
-def generate_answer(question: str, contexts: list[str]) -> str:
+async def generate_answer(question: str, contexts: list[str]) -> str:
     source_knowledge = "\n---\n".join(contexts)
 
     # 2. Updated system prompt to include source_knowledge
@@ -117,7 +108,7 @@ def generate_answer(question: str, contexts: list[str]) -> str:
         )
 
     try:
-        response = openai_client.chat.completions.create(
+        response = await openai_client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
                 {"role": "system", "content": system_prompt},
@@ -136,11 +127,11 @@ def generate_answer(question: str, contexts: list[str]) -> str:
 
 @app.post("/ai/v1/query", response_model=QueryResponse)
 async def rag_endpoint(payload: QueryRequest):
-    contexts = retrieve_context(payload.question, payload.top_k)
+    contexts = await retrieve_context(payload.question, payload.top_k)
 
     if contexts == []:
         return QueryResponse(answer="غير متواجد في قاعدة البيانات. يرجى المحاولة بسؤال آخر" , context=[])
-    answer = generate_answer(payload.question, contexts)
+    answer = await generate_answer(payload.question, contexts)
     
     return QueryResponse(answer=answer, context=contexts)
 
